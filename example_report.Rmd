@@ -1,0 +1,209 @@
+---
+title: "Examples for inspiration"
+author: "Markus Mortensen & André Waage Rivenæs"
+date: "9 mars 2019"
+output: 
+ html_document:
+   theme: cerulean
+   toc: true
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(lubridate)
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+Først leser vi inn data (merk: map_df dekkes i neste kurs)
+```{r}
+base_url <- "http://data.urbansharing.com/bergenbysykkel.no/trips/v1/2018/"
+months <- seq(6, 12)
+list_urls <- paste0(base_url, sprintf('%0.2d', months), ".csv")
+
+df_raw <- map_df(list_urls, ~ read_csv(.x))
+
+```
+
+La oss legge til noen variabler i datasettet. 
+
+```{r}
+df <- df_raw %>%
+  mutate(
+    duration_hours = duration / 3600,
+    duration_minutes = duration %/% 60,
+    date = as_date(started_at),
+    distance_trip = round(geosphere::distCosine(
+      cbind(start_station_longitude, start_station_latitude),
+      cbind(end_station_longitude, end_station_latitude)
+    ))
+  )
+```
+
+
+Deretter kan vi gjøre noen filtreringer ved å bruke dplyr::filter. Her lager vi et datasett med kun turer mellom 1000 og 3600 sekunder som hadde forskjellig start- og stoppsted, men hvor startstedet var Neumansgate.
+
+```{r}
+df_neumann <- df %>% 
+  filter(duration > 1000 & duration < 3600) %>%
+  filter(start_station_id != end_station_id) %>% 
+  filter(start_station_name == "Neumannsgate")
+
+```
+
+Ved å bruke group_by + summarise kan vi f.eks. telle observasjoner per dato og finne snitt varighet per dato.
+
+```{r}
+df_neumann %>% 
+  group_by(date) %>% 
+  summarise(ant = n(),
+            snitt_varighet = mean(duration)) %>% 
+  arrange(-ant)
+```
+
+# Visualisering
+## Scatter plots
+```{r}
+ggplot(data = df_neumann, aes(x = started_at, y = duration_hours)) + 
+  geom_point()
+```
+
+Now we see we have some problems:
+
+- The x-axis is broken
+- Some points are overlapping
+- It is really hard to spot a trend
+
+Let's fix the input-data and use geom-jitter instead of geom point.
+
+```{r}
+ggplot(data = df_neumann, aes(x = as_date(started_at), y = duration_hours)) + 
+  geom_jitter(alpha = 0.5)
+  
+```
+
+We still don't really see what's going on here, so let's add a trend!
+
+```{r}
+ggplot(data = df_neumann, aes(x = as_date(started_at), y = duration_hours)) + 
+  geom_jitter(alpha = 0.5, color = "grey") +
+  geom_smooth()
+```
+
+Wow! Bike rides in the summer appear to have a longer duration than those in the fall/winter. 
+
+Let's show the same relationship for the biggest start stations and do some cleaning:
+
+```{r}
+top_stations <- df %>% 
+  count(start_station_name) %>% 
+  top_n(9, n) %>% 
+  pull(start_station_name)
+  
+df_top_stations <- df %>% 
+  filter(start_station_name %in% top_stations) %>% 
+  filter(duration_hours < 1)
+
+ggplot(df_top_stations, aes(x = as_date(started_at), y = duration_hours)) +
+  geom_jitter(alpha = 0.2, color = "grey") +
+  geom_smooth() +
+  facet_wrap(~start_station_name) +
+  labs(x = "Date", y = "Duration") +
+  theme_bw()
+```
+
+
+## Histograms and density plots
+
+Let's create a simple histogram of the duration of bike rides.
+
+```{r}
+df <- df %>% 
+  filter(duration_hours < 1)
+
+df %>% 
+  ggplot(aes(x = duration_minutes)) + 
+  geom_histogram()
+```
+
+Now that's not very pretty, let's do some adjustments:
+```{r}
+df %>% 
+  ggplot(aes(x = duration_minutes)) + 
+  geom_histogram(fill = "steelblue", color = "black", bins = 60)
+```
+
+We can also make a density plot:
+
+```{r}
+df %>% 
+  ggplot(aes(x = duration_hours)) + 
+  geom_density(fill = "steelblue", color = "black")
+```
+
+We could split the density by a given variable.
+
+```{r}
+
+df <- df %>%
+  mutate(is_longer_1km = distance_trip > 1000)
+
+df %>% 
+  ggplot(aes(x = duration_minutes, fill = is_longer_1km)) + 
+  geom_density(color = "black", bins = 60, alpha = 0.6)
+```
+
+## Bar plot
+Let's plot the average duration per station.
+
+```{r}
+summary_stations <- df %>%
+  group_by(start_station_name) %>%
+  summarise(avg_duration = mean(duration))
+
+ggplot(summary_stations, aes(y = avg_duration, x = start_station_name)) +
+  geom_bar(stat = "identity")
+```
+
+What a terrible plot! Let's fix it:
+
+```{r}
+ggplot(summary_stations, aes(y = avg_duration, x = fct_reorder(start_station_name, avg_duration))) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(x = "Station", y = "Average duration of each bike ride")
+```
+
+## Plotly
+```{r}
+library(plotly)
+
+p <- df %>% 
+  sample_n(100) %>%
+  ggplot(aes(x = as_date(started_at), y = duration)) + 
+  geom_point() + 
+  geom_smooth()
+
+ggplotly(p)
+```
+
+
+## Maps
+```{r}
+library(leaflet)
+
+map_info <- df %>%
+  group_by(start_station_name, start_station_longitude, start_station_latitude) %>%
+  summarise(n_rides = n()) %>%
+  ungroup() %>%
+  mutate(n_rides_norm = 4 * n_rides / max(n_rides))
+
+leaflet(map_info) %>%
+  addTiles() %>%
+  addCircleMarkers(lng = ~ start_station_longitude, 
+                   lat = ~ start_station_latitude, 
+                   radius = ~ n_rides_norm, 
+                   popup = ~ paste0(start_station_name, ", number of rides = ", n_rides),
+                   fill = TRUE)
+```
+
