@@ -1,0 +1,374 @@
+---
+title: "Homework session 1"
+author: "Eystein Nordby Meese"
+date: "15 10 2019"
+output: 
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(geosphere)
+library(ggridges)
+library(RColorBrewer)
+library(gganimate)
+library(visNetwork)
+
+
+# Get data
+base_url <- "http://data.urbansharing.com/bergenbysykkel.no/trips/v1/2018/"
+months <- seq(6, 12)
+list_urls <- paste0(base_url, sprintf('%0.2d', months), ".csv")
+
+df_raw <- map_df(list_urls, ~ read_csv(.x))
+
+# Clean data
+# Remove trips to service stations
+# Remove trips that start and end same place
+df <- df_raw %>% 
+  filter(!(end_station_name %in% c("workshop", "UIP"))) %>% 
+  filter(duration < 3600) %>% 
+  filter(start_station_name != end_station_name) 
+
+# Add variables
+# Merk: geosphere er egen pakke, last ned på forhånd med install.packages("geosphere")
+df <- df %>% 
+  mutate(duration_minutes = duration %/% 60,
+         month = month(started_at),
+         wday = factor(wday(started_at)),
+         time_of_day_started = hour(started_at),
+         distance_trip = round(geosphere::distCosine(cbind(start_station_longitude, start_station_latitude),
+                                            cbind(end_station_longitude, end_station_latitude))))
+
+# smaller dataset containing only trips started at the most popular station
+df_mdp <- df %>% 
+  filter(start_station_name == "Møllendalsplass")
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data transformation
+
+## Dplyr
+
+I kodene under finner man løsning for fart, strekning og flest besøk for dplyr-pakken. 
+
+```{r}
+# Average speed in kilometers per hour
+df1 <- df %>% 
+  mutate(average_speed_kph = ((distance_trip/10)/(duration_minutes/60))/100)
+
+select(df1, duration_minutes:average_speed_kph)
+
+# Finn de 10 mest populære strekningen
+df_top10 <- df1 %>% 
+  group_by(start_station_name, end_station_name) %>% 
+  summarise(Number_of_occurances = n()) %>% 
+  ungroup() %>% 
+  top_n(wt = Number_of_occurances, n = 10)
+
+df_top10
+  
+# Stasjon med flest totalt antall besøk
+df_visited_top10 <- df1 %>%
+  select(start_station_name, end_station_name) %>% 
+  gather(variable, station) %>% 
+  group_by(station) %>% 
+  summarise(count = n()) %>% 
+  top_n(wt = count, n = 10) %>% 
+  arrange(desc(count))
+
+df_visited_top10
+
+```
+
+Under importeres datasettet "rain" og deretter vises fremgangsmåte for data transformeringen
+
+```{r}
+
+rain <- read.csv("Data/rain.csv")
+
+# rain filtrert på datoen 01-07-2018
+
+df_filtered <- df %>%
+  mutate(date = as.Date(started_at)) %>% 
+  filter(date >= "2018-07-01")
+
+rain$date <- as.Date(rain$date)
+
+rain_df <- left_join(df_filtered, rain, by = "date")
+
+rain1 <- rain_df %>% 
+  mutate(rain_category = case_when(
+    rain == 0 ~ "Ingen regn",
+    rain > 0 & rain < 5 ~ "Litt regn",
+    rain >= 5 ~ "Mye regn" 
+    ))
+
+rain1
+
+rain2 <- rain1 %>% 
+  distinct(date, .keep_all = TRUE) %>%
+  group_by(rain_category) %>% 
+  summarise(Number_of_days = n()) %>% 
+  mutate(rain_share = paste0(round((Number_of_days/sum(Number_of_days))*100, 2),"%"))
+
+rain2
+
+# Oppgave 5
+df_filtered_rain <- rain1 %>% 
+  group_by(rain_category) %>% 
+  summarise(Average_ride = mean(duration_minutes))
+
+df_filtered_rain
+
+```
+
+Det ser ut som gjennomsnittsturen er noe lavere ved mye regn kontra ingen regn, men det er ikke en veldig stor differanse mellom intervallene.  
+En slik snittberegning er ikke tilstrekkelig for å trekke en kausal sammenheng mellom mengde nedbør og lengde på sykkelturene fordi vi for eksempel ikke vet hvor mange observasjoner vi har i de forskjellige regnkategoriene. Det kan være veldig mange observasjoner for når det ikke regner, mens det kan være veldig få når det ikke regner, slik at vi ikke har et stort nok utvalg til å kunne trekke en konklusjon med høy nok confidence. Et annet punkt er at vi ikke vet hvor langt en person som sykler hadde tenkt til å sykle før det begynte å regne. Bysyklene blir som regel brukt for å komme seg fra A til B, ikke sykle rundt i byen på sightseeing. Dermed er det vanskelig å si noe om sykkelturene ville vært kortere eller lenger, med høy sikkerhet, når det regner mye kontra når det regner lite/ikke regner.  
+
+## Data Table
+
+I kodene under finner man løsning for fart, strekning og flest besøk for data.table pakken. 
+
+```{r, echo=FALSE}
+library(data.table)
+```
+
+```{r}
+dt <- setDT(df)
+
+# Average speed in kilometers per hour
+df_dt <- dt[, ':=' (average_speed_kph=(((distance_trip/10)/(duration_minutes/60))/100))]
+df_dt[,duration_minutes:average_speed_kph]
+
+# Finn de 10 mest populære strekningen
+dt_top10 <- dt[, .(amount = uniqueN(.SD)), by = c("start_station_name", "end_station_name")]
+dt_top10[order(-amount), .SD[1:10]]
+
+# Stasjon med flest totalt antall besøk
+dt_visited_top10 <- setDT(list(unlist(dt[,c(5,10)])))[,.N, keyby = V1]
+names(dt_visited_top10) <- c("Station Name", "Count")
+dt_visited_top10[order(-Count), .SD[1:10]]
+
+```
+
+
+
+# Data vasking (tidyr)
+
+## Tell and spre
+
+```{r}
+
+df_pivot <- df %>%
+  group_by(start_station_name, end_station_name) %>% 
+  summarise(Number_of_occurances = n()) %>%
+  pivot_wider(names_from = end_station_name,
+              values_from = Number_of_occurances)
+
+df_pivot
+
+```
+
+## Samling
+
+```{r}
+
+df_pivot_longer <- df %>% 
+  mutate(id = row_number()) %>%
+  pivot_longer(cols = ends_with("name"),
+               names_to = "stasjon",
+               values_to = "value",
+               names_prefix = "name") %>% 
+  select(id:value)
+
+df_pivot_longer
+
+```
+
+# Visualisering
+
+## Density
+
+```{r}
+
+df_top_stations <- df %>% 
+  filter(start_station_name %in% df_visited_top10$station)  
+
+ggplot(df_top_stations, aes(duration_minutes)) +
+  geom_density(fill = "springgreen4") +
+  facet_wrap(~start_station_name)
+
+```
+
+
+
+## Ridges
+
+```{r}
+
+ggplot(df_top_stations, aes(x = duration_minutes, y = start_station_name)) +
+  geom_density_ridges(scale = 4, fill = "springgreen4") + theme_ridges() +
+  labs(y = "Station",
+       x = "Median duration in minutes")
+
+```
+
+## Sortering
+
+```{r}
+
+p <- df_top_stations %>% 
+  mutate(start_station_name = fct_reorder(start_station_name, desc(duration_minutes), .fun = "median")) %>% 
+  ggplot(aes(x = duration_minutes, y = start_station_name)) +
+  geom_density_ridges(scale = 4, fill = "springgreen4") + theme_ridges() +
+  labs(y = "Station",
+       x = "Median duration in minutes")
+  
+p
+```
+
+## Grusomt barplott
+
+```{r}
+
+ggplot(df_top_stations, aes(x = start_station_name, y = duration)) +
+  geom_bar(stat = "summary", fun.y = "median", fill = "steelblue")
+  
+```
+
+## Fiks barplottet
+
+```{r}
+
+myColors <- brewer.pal(10, name = "Set3")
+names(myColors) <- df_visited_top10$start_station_name
+
+df_top_stations %>% 
+  mutate(start_station_name = fct_reorder(start_station_name, desc(duration), .fun = "median")) %>% 
+  ggplot(aes(x = start_station_name, y = duration, fill = start_station_name)) +
+  geom_bar(stat = "summary", fun.y = "median") +
+  scale_colour_manual(values = myColors) + 
+  coord_flip() +
+  labs(y = "Median duration",
+       x = "Station",
+       title = "Top 10 most popular stations",
+       subtitle = "By median duration of trips in seconds") +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.position = "none")
+
+
+```
+
+## Opphetet diskusjon
+
+Illustrer sammenhengen mellom nedbørsmengde og varighet på sykkelturen. Ta gjerne utgangspunktet i kun et utvalg av strekninger. Forklar funnene.
+
+```{r}
+
+rain_duration <- rain1 %>%
+  filter(start_station_name == c("Møllendalsplass", "Nykirken", 
+                                 "Nøstetorget", "Solheimsviken") &
+         end_station_name == c("Nonneseterplass", "Småstrandgaten",
+                               "Cornerteateret", "Media City"),
+         duration >= 150 & duration <= 1200)
+  
+
+ggplot(rain_duration, aes(x = rain, y = duration_minutes)) +
+  geom_point(alpha = .2, color = "steelblue") +
+  geom_smooth(color = "red", fill = "pink")
+
+```
+
+Fra grafen ser vi lengden i minutter på turene på strekningene:  
+- Møllendalsplas til Nonneseterplass  
+- Nykirken til Småstrandgaten  
+- Nøstetorget til Cornerteateret  
+- Solheimsviken til Media City    
+Det er filtrert ut turer som varte under 2,5 eller over 20 minutter, da disse ser ut til å være outliers.  
+Når vi analyserer grafen, ser vi at det ikke er stor forskjell i tidsbruken på rutene med økende regnvær. Men vi ser at når det regner "litt", så går snittiden på turene litt ned, før den øker med mer regn igjen. Ergo, vi kan ikke konkludere med at det er noen sammenheng mellom nedbørsmengden og varigheten på sykkelturene.    
+Det vi dermed kan se, er at antall sykkelturer drastisk synker med økende nedbørsmengde, slik at vi kan konkludere med at flere og flere velger andre fremkostmidler når nedbørsmengden øker. 
+
+## En GIF sier mer en tusen bilder
+
+```{r}
+
+p_mdp <- df_mdp %>% 
+  mutate(started_at_date = as.Date(started_at)) %>% 
+  group_by(started_at_date) %>% 
+  summarise(NumberOfTrips = n())
+
+p <- ggplot(p_mdp, aes(x = started_at_date, y = NumberOfTrips)) +
+  geom_line() +
+  labs(title = "Antall turer fra Møllendal over tid") + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+p + transition_reveal(started_at_date)
+
+```
+
+## Nettverk
+
+```{r}
+
+df_end_stations <- df %>% 
+  group_by(start_station_name, end_station_name) %>% 
+  summarise(Number_of_trips = n())
+
+nodes <- df_end_stations %>%
+ ungroup() %>% 
+ select(start_station_name) %>%
+ rename(id = start_station_name) %>%
+ mutate(label = id, group = id) %>%  
+ distinct()
+
+edges <- df_end_stations %>%
+ ungroup() %>%
+ rename(from = start_station_name, to = end_station_name)
+
+visNetwork(nodes, edges, width = "100%") %>%
+  visNodes(shape = "circle", color = id) %>% 
+  visEdges(arrows = "from", "to") %>% 
+  visInteraction(navigationButtons = TRUE) %>% 
+  visOptions(nodesIdSelection = TRUE) %>% 
+  visLegend()
+
+```
+
+# Fri oppgave
+
+```{r}
+# Lager dataset med top 10 stasjoner og filter på maks fart
+df_top_stations_speed <- df1 %>% 
+  filter(start_station_name %in% df_visited_top10$station) %>% 
+   mutate(average_speed_kph = ((distance_trip/10)/(duration_minutes/60))/100) %>% 
+  filter(average_speed_kph <= 80) %>% 
+  filter(duration_minutes >= 3 & duration_minutes <= 60)
+
+df_top_stations_speed %>% 
+  mutate(start_station_name = fct_reorder(start_station_name, desc(average_speed_kph))) %>% 
+  ggplot(aes(start_station_name, average_speed_kph)) +
+  geom_boxplot(aes(fill = start_station_name)) +
+  coord_flip() +
+  scale_y_continuous("Gjennomsnittlig fart", breaks = seq(0,25, by = 5)) +
+  labs(title = "Box plot av gjennomsnittlig fart km/t",
+       subtitle = "I kilometer per time per 10 mest populære start-stasjoner",
+       x = "Stasjon") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.position = "none")
+  
+```
+
+Her vises et boxplot av turene fra de 10 mest besøkte start-stasjonene og den gjennomsnittlige farten på sykkelturene som startet i disse stasjonene. Jeg fjernet observasjoner der farten var over 80 km/t, da dette kan betegnes som outliers (ikke normalt for en bysykkel å komme opp i over 80 km/t). Jeg fjerner også turer under 3 minutter, da disse kan virke som man har begynt på en tur for så å stoppe/snu med en gang. Også fjernet turer over 60 minutter, da jeg ønsker å se på farten til en vanlig A til B tur, ikke en rolig "søndagstur" eller sightseeing.  
+  
+Plotet viser at de fleste turene ligger gjennomsnittlig på 10 km/t, med de høyeste observasjonene rundt 20 km/t. Med andre ord virker det som de fleste turene går i et forholdsvis rolig tempo. Dette virker fornuftig, da man vil tro de mer "seriøse" og "fanatiske" syklistene eier egne mer spesialiserte landeveissykler, terrengsykler eller en hybridvariant. Og det er disse som ofte sykler i et godt høyere tempo.  
+  
+Man vil likevel kunne tro farten ligger litt høyere enn dette når det sykles, da disse turene foregår i en stor by, hvor det vil være mye start og stopp i trafikken.  
