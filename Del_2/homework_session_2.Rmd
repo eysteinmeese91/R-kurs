@@ -267,12 +267,117 @@ Funksjon som generer en tilfeldig string av valgfri lengde, som kun kan innehold
 
 ```{r}
 
-password <-  function(length = NA) {
+generate_password <- function(length = NA) {
   
-}
+  numbers <- c(0:9)
+  lower_char <- letters
+  upper_char <- LETTERS
 
+  password <- paste0(sample(c(numbers,
+                              lower_char,
+                              upper_char),
+                            length,
+                            replace = TRUE),
+                     collapse = "")
+  
+  return(password)
+} 
+
+generate_password_lev2(16)
 
 ```
 
 # NA-funksjoner
+
+```{r}
+
+antall_na <- function(variabel) {
+    sum(is.na(variabel))
+}
+
+prosent_na <- function(variabel) {
+  pros_na <- round((antall_na(variabel)/length(variabel))*100,2)
+  return(pros_na)
+}
+
+library(nycflights13)
+    
+antall_na(flights$dep_time)
+
+prosent_na(variabel = flights$dep_time)
+
+
+map_dfr(flights, ~ antall_na(.x))
+
+```
+
+
+# Innlastning av mange datafiler
+
+```{r}
+setwd("~/R/R-kurs_del2/Data/Karakterer_per_fylke")
+file_path <- fs::dir_ls(path = "~/R/R-kurs_del2/Data/Karakterer_per_fylke", 
+                        regexp = "\\~csv$", fail = FALSE)
+
+karakterer_per_fylke <- list.files(path = "~/R/R-kurs_del2/Data/Karakterer_per_fylke",
+                                   pattern = "*.csv") %>% 
+  map_df(~read.csv2(.x))
+
+```
+
+# Fleksible Plots
+
+```{r}
+
+
+# If NA, remove obs. LEGG TIL
+# FIKS FARGER
+
+make_plot <- function(data, x, y, z, theme = theme_bw()) {
+  myColors <- brewer.pal(12, name = "Set3")
+  names(myColors) <- unique(data$z)
+  
+  data %>%
+    ggplot(aes({{x}},{{y}}, fill = {{z}})) +
+    geom_point() +
+    scale_colour_manual(values = myColors) +
+    theme
+}
+
+
+iris %>%
+  make_plot(Sepal.Length, Sepal.Width, Species, theme_bw())
+
+flights %>% 
+  make_plot(month, dep_delay, origin)
+
+
+```
+
+# Konverteringer 2
+
+```{r}
+
+mpg_to_kpl <- function(mpg = NA) {
+   kpl <- round((mpg/2.352137783), 4)
+  print(kpl)
+}
+
+mpg_to_kpl(1)
+
+plot_kpl <- function(data, mpg, y) {
+  data %>% 
+    ggplot(aes(mpg_to_kpl({{mpg}}), {{y}})) +
+    geom_point() +
+    labs(x = "kpl")
+}
+
+mtcars %>% plot_kpl(mpg, hp)
+
+# FIKS LITT PÅ DENNE
+```
+
+
+# Rescale
+
 
