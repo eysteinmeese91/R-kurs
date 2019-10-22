@@ -315,13 +315,20 @@ map_dfr(flights, ~ antall_na(.x))
 # Innlastning av mange datafiler
 
 ```{r}
-setwd("~/R/R-kurs_del2/Data/Karakterer_per_fylke")
-file_path <- fs::dir_ls(path = "~/R/R-kurs_del2/Data/Karakterer_per_fylke", 
-                        regexp = "\\~csv$", fail = FALSE)
 
-karakterer_per_fylke <- list.files(path = "~/R/R-kurs_del2/Data/Karakterer_per_fylke",
-                                   pattern = "*.csv") %>% 
-  map_df(~read.csv2(.x))
+getwd()
+file_path <- fs::dir_ls(path = "./Data/Karakterer_per_fylke", 
+                        regexp = "\\~csv$")
+
+karakterer_per_fylke <- file_path %>% 
+  map_df(~read_csv(.x, col_types = cols(.default = "c")))
+
+
+tbl <-
+    list.files(path = "./Data/Karakterer_per_fylke",
+               pattern = "*.csv", 
+               full.names = T) %>% 
+    map_df(~read_csv2(., col_types = cols(.default = "c")))
 
 ```
 
