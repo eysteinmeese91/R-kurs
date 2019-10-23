@@ -330,6 +330,10 @@ tbl <-
                full.names = T) %>% 
     map_df(~read_csv2(., col_types = cols(.default = "c")))
 
+karakterer_per_fylke <- tbl %>% 
+  as.data.frame() %>% 
+  na.omit()
+
 ```
 
 # Fleksible Plots
@@ -387,4 +391,131 @@ mtcars %>% plot_kpl(mpg, hp)
 
 # Rescale
 
+```{r, echo=FALSE, include=FALSE}
+
+quantmod::getSymbols(c("GOOGL", "AAPL", "FB"), from = "2019-01-01")
+
+# Lag liste av dataframes. Gjør radnavn til kolonne med navn "Dato"
+list_of_df <- map(.x = list(FB = FB, GOOGL = GOOGL, AAPL = AAPL), 
+                  .f = ~(rownames_to_column(.data = as.data.frame(.), 
+                                            var = "Dato")))
+
+# Join alle dfs på Dato
+df_stocks <- reshape::merge_recurse(list_of_df)
+
+# Plot
+df_stocks %>% 
+  select(Dato, contains("Close")) %>% 
+  pivot_longer(-Dato, names_to = "Stock", values_to = "Close_rescaled") %>% 
+  ggplot(aes(x = as.Date(Dato), y = Close_rescaled, col = Stock, group = Stock)) + 
+  geom_line() + 
+  theme_bw()
+
+```
+
+Lag en funksjon som tar en vektor som input og reskalerer til at første verdi er lik 100 og resterende verdier viser riktig prosentvis størrelse i forhold til start. Det vil si at for eksempel c(10, 9, 15) reskaleres til c(100, 90, 150).
+
+Benytt denne funksjonen på datasettet ovenfor, og lag en graf som viser utviklingen til aksjekursen til telenor reskalert til 2. januar 2019.
+
+```{r}
+
+rescaling <- function(x) {
+  if(class(x) != "numeric") {
+    return(x)
+  } 
+  x <- as.vector(x/x[1])*100
+  
+  return(x)
+}
+
+x <- c(10,9,15)
+
+rescaling(x)
+
+# Plot
+df_stocks %>% 
+  mutate(FB.Close = rescaling(FB.Close),
+         GOOGL.Close = rescaling(GOOGL.Close),
+         AAPL.Close = rescaling(AAPL.Close)) %>% 
+  select(Dato, contains("Close")) %>% 
+  pivot_longer(-Dato, names_to = "Stock", values_to = "Close_rescaled") %>% 
+  ggplot(aes(x = as.Date(Dato), y = Close_rescaled, col = Stock, group = Stock)) + 
+  geom_line() + 
+  theme_bw()
+
+```
+
+
+# Navngiving
+
+```{r}
+
+test_first_symbol <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+
+del_last_obs <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+
+rep_length <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+
+return_min_of_max <- function(x, y, z) {
+  pmin(pmax(x, y), z)
+}
+
+
+```
+
+# Bli kvitt for-løkken
+
+```{r}
+
+out <- function(x = letters) {
+  out <- paste0(gsub(",", "", x), collapse = "")
+  return(out)
+}
+out()
+
+set.seed(1)
+x <- sample(100)
+sd <- 0
+for (i in seq_along(x)) {
+  sd <- sd + (x[i] - mean(x)) ^ 2
+}
+sd <- sqrt(sd / (length(x) - 1))
+
+standard_dev <- function(x) {
+  stand_dev <- (sd(x))   
+  return(stand_dev)
+}
+
+# Tester at gir samme output
+sd
+standard_dev(x)
+
+
+x <- runif(100)
+out <- vector("numeric", length(x))
+out[1] <- x[1]
+for (i in 2:length(x)) {
+  out[i] <- out[i - 1] + x[i]
+}
+
+# DENNE MÅ RETTES PÅ
+funky_function <- function(x) {
+  out <- vector("numeric", length(x))
+  out[1] <- x[1]
+  out[i] <- out[i - 1] + x[i]
+  return(out)
+}
+
+funky_function(x)
+
+```
+
+# Feilmeldinger
 
