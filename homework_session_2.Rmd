@@ -221,7 +221,7 @@ celsius_to_fahrenheit(0)
 
 celsius_to_fahrenheit(100)
 
-# Se på denne
+# Denne ser feil ut, må fikses.
 fahrenheit_to_celsius(celsius_to_fahrenheit(23))
 
 
@@ -242,7 +242,7 @@ dingdong <- function(x) {
     print(x)
 }
 
-# Se på outputen, får alt til å printes som i oppgaven?
+
 dingdong(c(1:100))
 ```
 
@@ -283,7 +283,7 @@ generate_password <- function(length = NA) {
   return(password)
 } 
 
-generate_password_lev2(16)
+generate_password(16)
 
 ```
 
@@ -385,7 +385,6 @@ plot_kpl <- function(data, mpg, y) {
 
 mtcars %>% plot_kpl(mpg, hp)
 
-# FIKS LITT PÅ DENNE
 ```
 
 
@@ -505,17 +504,19 @@ for (i in 2:length(x)) {
   out[i] <- out[i - 1] + x[i]
 }
 
-# DENNE MÅ RETTES PÅ
-funky_function <- function(x) {
-  out <- vector("numeric", length(x))
-  out[1] <- x[1]
-  out[i] <- out[i - 1] + x[i]
+cumming <- function(x) {
+  out <- cumsum(x)
   return(out)
 }
 
-funky_function(x)
+# Tester at gir samme output
+out
+cumsum(x)
 
 ```
 
 # Feilmeldinger
+
+
+
 
