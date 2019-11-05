@@ -26,6 +26,15 @@ library(visNetwork)
 
 # Load data 
 
+# JP:
+# Veldig mye bra her! Se enkelte kommentarer under, markert med "JP". Håper de
+# er nyttige for deg :-)
+
+# JP:
+# Kommentar til bruk av github: 
+# Flott at du har committet underveis! Les gjerne slidene fra sesjon 2 om å 
+# skrive gode commit messages, siden du bruker dette en del på prosjekt. 
+
 
 ```    
 
@@ -122,6 +131,11 @@ z <- as.integer(x)
 
 er_partall(z)
 
+# JP:
+# Fin funksjon og fin feilmelding! Ofte kan det være lurt å bruke "is.numeric" 
+# fremfor "is.integer" eller "is.double" fordi den er mindre streng. Denne funksjonen
+# hadde funket helt fint på både integers og doubles.
+
 ```
 
 Man trenger ikke lage er_oddetall() når vi lager er_partall(), siden er_partall() returnerer FALSE dersom inputen ikke er partall, noe som betyr at inputen er oddetall. Mao. TRUE = partall, mens FALSE = oddetall.
@@ -132,6 +146,14 @@ Forskjellen mellom if() og ifelse() er at if() vil kun se på det første elemen
 
 if() funksjonen ville jeg brukt i byggingen av egne funksjoner, for å kjøre en viss funksjonsdel når en gitt tilstand er sann, eksempelvis når (x %% 2) = 0 (x er partall), mens ifelse() ville jeg brukt i transformering av input-dataen. Eksempel på ifelse:  
 ifelse(x==2, 1, 0). I dette eksempelet vil alle elementene i vektoren som er 2 bli transformert til 1, mens de som ikke er vil bli til 0.
+
+```{r}
+
+# JP:
+# Nydelig svar! Mange som misset på denne. 
+
+```
+
 
 ## Funksjonen virker ikke
 
@@ -176,7 +198,7 @@ time_of_day <- function(timeofday = hour(now())) {
       return("God kveld")
     } else {
     if(between(timeofday, 00.01, 06.00)) {
-      return("GÅ Å LEGG DEG!")
+      return("GÅ Å LEGG DEG!") # Haha
     } else {
       stop("Feil verdi! timeofday må ha en verdi mellom 
            00.00 og 24.00", call. = FALSE)
@@ -188,6 +210,13 @@ time_of_day <- function(timeofday = hour(now())) {
 }
 
 time_of_day()
+
+
+# JP:
+# Fin funksjon! Se løsningsforslag for en vektorisert versjon også. 
+# PS: jeg ser at du bruker "else { if(){..} }", men det holder å skrive 
+# "else if() {...} ". Da får man litt renere og penere kode. 
+
 
 ```
 
@@ -224,6 +253,12 @@ celsius_to_fahrenheit(100)
 # Denne ser feil ut, må fikses.
 fahrenheit_to_celsius(celsius_to_fahrenheit(23))
 
+# JP:
+# Tror du mener den siste ser feil ut fordi den returnerer to tall. 
+# "Problemet" er at du har spesifisert "print" i begge funksjonene. Dermed vil 
+# celsius_to_fahrenheit(23) printe 73 før fahrenheit_to_celsius() printer 23.
+
+
 
 ```
 
@@ -244,6 +279,11 @@ dingdong <- function(x) {
 
 
 dingdong(c(1:100))
+
+# JP:
+# Fin funksjon, men usikker på om "print" på slutten tilfører noe verdi. Kommer
+# som alltid an på hvordan man planlegger å bruke funksjonen. 
+
 ```
 
 # print_all
@@ -285,6 +325,10 @@ generate_password <- function(length = NA) {
 
 generate_password(16)
 
+# JP:
+# Bra!
+
+
 ```
 
 # NA-funksjoner
@@ -299,6 +343,12 @@ prosent_na <- function(variabel) {
   pros_na <- round((antall_na(variabel)/length(variabel))*100,2)
   return(pros_na)
 }
+
+# JP:
+# Veldig bra! 
+# Tips: Dersom du hadde droppet å assigne til pros_na kunne du også 
+# sløyfet "return()", og hele funksjonen hadde blitt kortere og kanskje mer lettlest
+
 
 library(nycflights13)
     
@@ -320,6 +370,14 @@ getwd()
 file_path <- fs::dir_ls(path = "./Data/Karakterer_per_fylke", 
                         regexp = "\\~csv$")
 
+# JP:
+# Jeg husker du hadde trøbbel med denne, og nå ser jeg hvorfor. I "regexp" bruker du 
+# "\\~csv$", men det skal være \\.csv$" ("." istedenfor "~").
+# Tips: Dersom du ville hatt .Rmd-filen i mappen "Del_2" 
+# slik du hadde tidligere så måtte du ha endret path til:
+# "./../Data/Karakterer_per_fylke"
+
+
 karakterer_per_fylke <- file_path %>% 
   map_df(~read_csv(.x, col_types = cols(.default = "c")))
 
@@ -333,6 +391,10 @@ tbl <-
 karakterer_per_fylke <- tbl %>% 
   as.data.frame() %>% 
   na.omit()
+
+# JP:
+# Bra du fant en workaround!
+
 
 ```
 
@@ -355,6 +417,8 @@ make_plot <- function(data, x, y, z, theme = theme_bw()) {
     theme
 }
 
+# JP:
+# Bra! 
 
 iris %>%
   make_plot(Sepal.Length, Sepal.Width, Species, theme_bw())
@@ -384,6 +448,10 @@ plot_kpl <- function(data, mpg, y) {
 }
 
 mtcars %>% plot_kpl(mpg, hp)
+
+# JP:
+# Bra, men tror jeg ville droppet "print" i første funknsjonen. Nå printer den 
+# alle transformasjonene før den lager plottet. 
 
 ```
 
