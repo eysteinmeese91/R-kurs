@@ -1,0 +1,590 @@
+---
+title: "Homework session 2"
+author: "Eystein Nordby Meese"
+date: "23 10 2019"
+output: 
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+# Introduksjon
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Load required packages 
+library(tidyverse)
+library(lubridate)
+library(geosphere)
+library(ggridges)
+library(RColorBrewer)
+library(gganimate)
+library(visNetwork)
+
+# Load data 
+
+# JP:
+# Veldig mye bra her! Se enkelte kommentarer under, markert med "JP". Håper de
+# er nyttige for deg :-)
+
+# JP:
+# Kommentar til bruk av github: 
+# Flott at du har committet underveis! Les gjerne slidene fra sesjon 2 om å 
+# skrive gode commit messages, siden du bruker dette en del på prosjekt. 
+
+
+```    
+
+
+# Enkle Funksjoner
+
+## Summer to tall
+
+```{r}
+
+x <- c(1, 2, 3, 10)
+y <- c(4, 5, 6, 23)
+
+sum_two_numbers <- function(x,y) {
+  x + y
+}
+
+sum_two_numbers(x,y)
+
+```
+
+## Multipliser to tall
+
+```{r}
+
+multiply_two_numbers <- function(x,y) {
+  x * y
+}
+
+multiply_two_numbers(x,y)
+
+```
+
+## Feilmelding
+
+Dersom vi kjører kvadrer_x(), så vil vi få feilmeldingen "x" mangler, med ingen default. Dette fordi funksjonen krever en verdi på x for å ut en output. Den klarer ikke, logisk nok, å kjøre ingenting opphøyd i andre. 
+
+Vi kan fikse dette med å legge inn en default verdi for x i funksjonen, som for eksempel kan være enten 0 eller NA:
+
+```{r}
+
+kvadrer_x <- function(x = 0) {
+  x^2
+}
+
+kvadrer_x()
+
+```
+
+## Default value cor()
+
+At default verdien til for method i cor er c("pearson", "kendall", "spearman") betyr at det er en av disse metodene som blir brukt i beregningen av kovarians eller correlation. Dette er noe forskjellige beregningsmetoder, og det er en av disse tre som kan benyttes i funksjonen.  
+  
+Den faktiske default-verdien, hvis man ikke spesifiserer en metode, er den første verdien - "pearson". 
+
+```{r, include=FALSE}
+
+cor
+
+```
+
+## Finnes 2 i vektoren?
+
+```{r}
+
+number_two_included <-  function(x) {
+  2 %in% x
+}
+
+number_two_included(x)
+number_two_included(y)
+
+```
+
+## Dårlig ide
+
+Det er en dårlig ide å gi funksjonen sin navn som sum(), mtcars() eller mean(), da dette allerede er funksjoner som finnes i base pakken i R, og man vil da fort kunne forveksle mellom dem, og det er lett å bruke feil funksjon i koden sin. 
+
+## Partall
+
+```{r}
+
+er_partall <- function(x) {
+    if(is.integer(x)) {
+      x %% 2 ==  0
+    } else {
+      stop("Number must be of type integer", call. = FALSE)
+  }
+}
+
+#er_partall(x)
+
+z <- as.integer(x)
+
+er_partall(z)
+
+# JP:
+# Fin funksjon og fin feilmelding! Ofte kan det være lurt å bruke "is.numeric" 
+# fremfor "is.integer" eller "is.double" fordi den er mindre streng. Denne funksjonen
+# hadde funket helt fint på både integers og doubles.
+
+```
+
+Man trenger ikke lage er_oddetall() når vi lager er_partall(), siden er_partall() returnerer FALSE dersom inputen ikke er partall, noe som betyr at inputen er oddetall. Mao. TRUE = partall, mens FALSE = oddetall.
+
+## If Else Ifelse
+
+Forskjellen mellom if() og ifelse() er at if() vil kun se på det første elementet i en vektor, mens ifelse() vil se på alle elementene individuelt i vektoren. if() statementet er en kontroll statement som er utviklet til å virke bare mot en scalar boolean condition.  
+
+if() funksjonen ville jeg brukt i byggingen av egne funksjoner, for å kjøre en viss funksjonsdel når en gitt tilstand er sann, eksempelvis når (x %% 2) = 0 (x er partall), mens ifelse() ville jeg brukt i transformering av input-dataen. Eksempel på ifelse:  
+ifelse(x==2, 1, 0). I dette eksempelet vil alle elementene i vektoren som er 2 bli transformert til 1, mens de som ikke er vil bli til 0.
+
+```{r}
+
+# JP:
+# Nydelig svar! Mange som misset på denne. 
+
+```
+
+
+## Funksjonen virker ikke
+
+Funksjonen vil ikke virke fordi den ikke ikke skjønner at "variabel" er en kolonne, men tror at det er et objekt. 
+For å fikse funksjonen kan vi legge til 2 brackets rundt "variabel", da vil funksjonen skjønne at det er et variabelnavn på en kolonne:
+
+```{r}
+
+lag_histogram <-  function(.data, variabel) {
+  
+  .data %>% 
+    ggplot(aes(x = {{variabel}})) + 
+    geom_histogram()
+  
+}
+
+lag_histogram(mtcars, mpg)
+
+```
+
+# God
+
+Skriv en funksjon som returner “God morgen”, “God formiddag”, “God ettermiddag” eller “God kveld” avhengig av hvilket tidspunkt man sender som input.
+
+Tips: Bruk lubridate::now() som default, da blir det lettere å teste funksjonen.
+
+```{r}
+
+lubridate::hour(now())
+
+time_of_day <- function(timeofday = hour(now())) {
+  if(between(timeofday, 06.01, 09.00)) {
+    return("God morgen")
+  } else {
+    if(between(timeofday, 09.01, 12.00)) {
+      return("God formiddag")
+    } else {
+    if(between(timeofday, 12.01, 17.00)) {
+      return("God ettermiddag")
+    } else {
+    if(between(timeofday, 17.01, 24.00)) {
+      return("God kveld")
+    } else {
+    if(between(timeofday, 00.01, 06.00)) {
+      return("GÅ Å LEGG DEG!") # Haha
+    } else {
+      stop("Feil verdi! timeofday må ha en verdi mellom 
+           00.00 og 24.00", call. = FALSE)
+          }
+        }
+      }
+    }
+  }
+}
+
+time_of_day()
+
+
+# JP:
+# Fin funksjon! Se løsningsforslag for en vektorisert versjon også. 
+# PS: jeg ser at du bruker "else { if(){..} }", men det holder å skrive 
+# "else if() {...} ". Da får man litt renere og penere kode. 
+
+
+```
+
+
+# Konverteringer 1
+
+```{r}
+
+fahrenheit_to_celsius <- function(fahrenheit = NA) {
+  if(is.character(fahrenheit)) {
+    stop("Fahrenheit kan ikke være av karakter, må være et nummer!", call. = FALSE)
+  }
+  celsius <- round((fahrenheit - 32) * (5/9), 0)
+  print(celsius)
+}  
+
+celsius_to_fahrenheit <- function(celsius = NA) {
+  if(is.character(celsius)) {
+    stop("Celsius kan ikke være av karakter, må være et nummer!", call. = FALSE)
+  }
+  fahrenheit <- round((celsius * (9/5) + 32), 0)
+  print(fahrenheit)
+}  
+
+
+fahrenheit_to_celsius(32)
+
+fahrenheit_to_celsius(64)
+
+celsius_to_fahrenheit(0)
+
+celsius_to_fahrenheit(100)
+
+# Denne ser feil ut, må fikses.
+fahrenheit_to_celsius(celsius_to_fahrenheit(23))
+
+# JP:
+# Tror du mener den siste ser feil ut fordi den returnerer to tall. 
+# "Problemet" er at du har spesifisert "print" i begge funksjonene. Dermed vil 
+# celsius_to_fahrenheit(23) printe 73 før fahrenheit_to_celsius() printer 23.
+
+
+
+```
+
+# DingDong
+
+```{r}
+
+dingdong <- function(x) {
+  x <- as.data.frame(x) %>% 
+    mutate(x = case_when(
+      x %% 15 == 0 ~ "DingDong",
+      x %% 3 == 0 ~ "Ding",
+      x %% 5 == 0 ~ "Dong",
+      TRUE ~ as.character(x)
+    )) %>% 
+    print(x)
+}
+
+
+dingdong(c(1:100))
+
+# JP:
+# Fin funksjon, men usikker på om "print" på slutten tilfører noe verdi. Kommer
+# som alltid an på hvordan man planlegger å bruke funksjonen. 
+
+```
+
+# print_all
+
+```{r}
+
+print_all <- function(data) {
+  print(data, n = nrow(data))
+}
+
+# For å teste funksjonen
+iris %>% as_tibble %>% head(25) %>%  print_all()
+```
+
+# Passordgenerator
+
+Funksjon som generer en tilfeldig string av valgfri lengde, som kun kan inneholde:  
+- Store bokstaver (engelsk)  
+- Små bokstaver (engelsk)  
+- Tall fra 0-9
+
+```{r}
+
+generate_password <- function(length = NA) {
+  
+  numbers <- c(0:9)
+  lower_char <- letters
+  upper_char <- LETTERS
+
+  password <- paste0(sample(c(numbers,
+                              lower_char,
+                              upper_char),
+                            length,
+                            replace = TRUE),
+                     collapse = "")
+  
+  return(password)
+} 
+
+generate_password(16)
+
+# JP:
+# Bra!
+
+
+```
+
+# NA-funksjoner
+
+```{r}
+
+antall_na <- function(variabel) {
+    sum(is.na(variabel))
+}
+
+prosent_na <- function(variabel) {
+  pros_na <- round((antall_na(variabel)/length(variabel))*100,2)
+  return(pros_na)
+}
+
+# JP:
+# Veldig bra! 
+# Tips: Dersom du hadde droppet å assigne til pros_na kunne du også 
+# sløyfet "return()", og hele funksjonen hadde blitt kortere og kanskje mer lettlest
+
+
+library(nycflights13)
+    
+antall_na(flights$dep_time)
+
+prosent_na(variabel = flights$dep_time)
+
+
+map_dfr(flights, ~ antall_na(.x))
+
+```
+
+
+# Innlastning av mange datafiler
+
+```{r}
+
+getwd()
+file_path <- fs::dir_ls(path = "./Data/Karakterer_per_fylke", 
+                        regexp = "\\~csv$")
+
+# JP:
+# Jeg husker du hadde trøbbel med denne, og nå ser jeg hvorfor. I "regexp" bruker du 
+# "\\~csv$", men det skal være \\.csv$" ("." istedenfor "~").
+# Tips: Dersom du ville hatt .Rmd-filen i mappen "Del_2" 
+# slik du hadde tidligere så måtte du ha endret path til:
+# "./../Data/Karakterer_per_fylke"
+
+
+karakterer_per_fylke <- file_path %>% 
+  map_df(~read_csv(.x, col_types = cols(.default = "c")))
+
+
+tbl <-
+    list.files(path = "./Data/Karakterer_per_fylke",
+               pattern = "*.csv", 
+               full.names = T) %>% 
+    map_df(~read_csv2(., col_types = cols(.default = "c")))
+
+karakterer_per_fylke <- tbl %>% 
+  as.data.frame() %>% 
+  na.omit()
+
+# JP:
+# Bra du fant en workaround!
+
+
+```
+
+# Fleksible Plots
+
+```{r}
+
+
+# If NA, remove obs. LEGG TIL
+# FIKS FARGER
+
+make_plot <- function(data, x, y, z, theme = theme_bw()) {
+  myColors <- brewer.pal(12, name = "Set3")
+  names(myColors) <- unique(data$z)
+  
+  data %>%
+    ggplot(aes({{x}},{{y}}, fill = {{z}})) +
+    geom_point() +
+    scale_colour_manual(values = myColors) +
+    theme
+}
+
+# JP:
+# Bra! 
+
+iris %>%
+  make_plot(Sepal.Length, Sepal.Width, Species, theme_bw())
+
+flights %>% 
+  make_plot(month, dep_delay, origin)
+
+
+```
+
+# Konverteringer 2
+
+```{r}
+
+mpg_to_kpl <- function(mpg = NA) {
+   kpl <- round((mpg/2.352137783), 4)
+  print(kpl)
+}
+
+mpg_to_kpl(1)
+
+plot_kpl <- function(data, mpg, y) {
+  data %>% 
+    ggplot(aes(mpg_to_kpl({{mpg}}), {{y}})) +
+    geom_point() +
+    labs(x = "kpl")
+}
+
+mtcars %>% plot_kpl(mpg, hp)
+
+# JP:
+# Bra, men tror jeg ville droppet "print" i første funknsjonen. Nå printer den 
+# alle transformasjonene før den lager plottet. 
+
+```
+
+
+# Rescale
+
+```{r, echo=FALSE, include=FALSE}
+
+quantmod::getSymbols(c("GOOGL", "AAPL", "FB"), from = "2019-01-01")
+
+# Lag liste av dataframes. Gjør radnavn til kolonne med navn "Dato"
+list_of_df <- map(.x = list(FB = FB, GOOGL = GOOGL, AAPL = AAPL), 
+                  .f = ~(rownames_to_column(.data = as.data.frame(.), 
+                                            var = "Dato")))
+
+# Join alle dfs på Dato
+df_stocks <- reshape::merge_recurse(list_of_df)
+
+# Plot
+df_stocks %>% 
+  select(Dato, contains("Close")) %>% 
+  pivot_longer(-Dato, names_to = "Stock", values_to = "Close_rescaled") %>% 
+  ggplot(aes(x = as.Date(Dato), y = Close_rescaled, col = Stock, group = Stock)) + 
+  geom_line() + 
+  theme_bw()
+
+```
+
+Lag en funksjon som tar en vektor som input og reskalerer til at første verdi er lik 100 og resterende verdier viser riktig prosentvis størrelse i forhold til start. Det vil si at for eksempel c(10, 9, 15) reskaleres til c(100, 90, 150).
+
+Benytt denne funksjonen på datasettet ovenfor, og lag en graf som viser utviklingen til aksjekursen til telenor reskalert til 2. januar 2019.
+
+```{r}
+
+rescaling <- function(x) {
+  if(class(x) != "numeric") {
+    return(x)
+  } 
+  x <- as.vector(x/x[1])*100
+  
+  return(x)
+}
+
+x <- c(10,9,15)
+
+rescaling(x)
+
+# Plot
+df_stocks %>% 
+  mutate(FB.Close = rescaling(FB.Close),
+         GOOGL.Close = rescaling(GOOGL.Close),
+         AAPL.Close = rescaling(AAPL.Close)) %>% 
+  select(Dato, contains("Close")) %>% 
+  pivot_longer(-Dato, names_to = "Stock", values_to = "Close_rescaled") %>% 
+  ggplot(aes(x = as.Date(Dato), y = Close_rescaled, col = Stock, group = Stock)) + 
+  geom_line() + 
+  theme_bw()
+
+```
+
+
+# Navngiving
+
+```{r}
+
+test_first_symbol <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+
+del_last_obs <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+
+rep_length <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+
+return_min_of_max <- function(x, y, z) {
+  pmin(pmax(x, y), z)
+}
+
+
+```
+
+# Bli kvitt for-løkken
+
+```{r}
+
+out <- function(x = letters) {
+  out <- paste0(gsub(",", "", x), collapse = "")
+  return(out)
+}
+out()
+
+set.seed(1)
+x <- sample(100)
+sd <- 0
+for (i in seq_along(x)) {
+  sd <- sd + (x[i] - mean(x)) ^ 2
+}
+sd <- sqrt(sd / (length(x) - 1))
+
+standard_dev <- function(x) {
+  stand_dev <- (sd(x))   
+  return(stand_dev)
+}
+
+# Tester at gir samme output
+sd
+standard_dev(x)
+
+
+x <- runif(100)
+out <- vector("numeric", length(x))
+out[1] <- x[1]
+for (i in 2:length(x)) {
+  out[i] <- out[i - 1] + x[i]
+}
+
+cumming <- function(x) {
+  out <- cumsum(x)
+  return(out)
+}
+
+# Tester at gir samme output
+out
+cumsum(x)
+
+```
+
+# Feilmeldinger
+
+
+
+
